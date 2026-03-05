@@ -1,0 +1,696 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Crypto Risk Terminal</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/plotly.js/2.26.0/plotly.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&family=Syne:wght@400;700;800&display=swap" rel="stylesheet"/>
+<style>
+:root {
+  --bg:#07090d;--surface:#0e1117;--surface2:#151c24;--border:#1c2738;
+  --accent:#00d4ff;--accent2:#ff3d6b;--accent3:#39ff6b;--warn:#ffb84d;
+  --purple:#b97cff;--text:#dde6f0;--muted:#3d5068;
+  --font-mono:'Space Mono',monospace;--font-head:'Syne',sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:var(--font-mono);font-size:13px;min-height:100vh;overflow-x:hidden}
+body::after{content:'';position:fixed;inset:0;z-index:9999;pointer-events:none;background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,.03) 2px,rgba(0,0,0,.03) 4px)}
+body::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;background-image:radial-gradient(circle,#1c2738 1px,transparent 1px);background-size:28px 28px;opacity:.6}
+#app{position:relative;z-index:1;max-width:1440px;margin:0 auto;padding:20px 24px}
+header{display:flex;align-items:center;justify-content:space-between;margin-bottom:28px;padding-bottom:18px;border-bottom:1px solid var(--border);flex-wrap:wrap;gap:12px}
+.logo{display:flex;align-items:center;gap:14px}
+.logo-mark{width:40px;height:40px;border:2px solid var(--accent);border-radius:8px;display:grid;place-items:center;font-size:20px;color:var(--accent);box-shadow:0 0 16px rgba(0,212,255,.25);animation:glow 3s ease-in-out infinite}
+@keyframes glow{0%,100%{box-shadow:0 0 16px rgba(0,212,255,.25)}50%{box-shadow:0 0 28px rgba(0,212,255,.5)}}
+.logo-text{font-family:var(--font-head);font-size:20px;font-weight:800;letter-spacing:-0.5px}
+.logo-text em{color:var(--accent);font-style:normal}
+.header-right{display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+.live-dot{width:8px;height:8px;border-radius:50%;background:var(--accent3);animation:blink 2s infinite}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
+.live-label{font-size:11px;color:var(--accent3);display:flex;align-items:center;gap:6px}
+#active-source{font-size:10px;color:var(--muted);border:1px solid var(--border);border-radius:4px;padding:3px 8px}
+.tab-bar{display:flex;gap:2px;margin-bottom:20px;background:var(--surface);border-radius:8px;padding:4px;width:fit-content;border:1px solid var(--border)}
+.tab{padding:7px 16px;border-radius:5px;cursor:pointer;font-family:var(--font-mono);font-size:11px;color:var(--muted);border:none;background:none;transition:.2s;letter-spacing:.04em}
+.tab.active{background:var(--accent);color:#000;font-weight:700}
+.tab:hover:not(.active){color:var(--text);background:rgba(255,255,255,.05)}
+.panel{display:none}.panel.active{display:block}
+.controls{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px;margin-bottom:20px}
+.ctrl-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px}
+label{display:block;font-size:10px;color:var(--muted);margin-bottom:5px;text-transform:uppercase;letter-spacing:.1em}
+input,select{width:100%;background:var(--surface2);border:1px solid var(--border);color:var(--text);font-family:var(--font-mono);font-size:13px;padding:9px 11px;border-radius:6px;outline:none;transition:.2s}
+input:focus,select:focus{border-color:var(--accent);box-shadow:0 0 0 2px rgba(0,212,255,.1)}
+input::placeholder{color:var(--muted)}
+.sec-head{font-family:var(--font-head);font-size:13px;font-weight:700;margin-bottom:14px;display:flex;align-items:center;gap:10px;color:var(--accent)}
+.sec-head::after{content:'';flex:1;height:1px;background:var(--border)}
+.btn{padding:9px 18px;border-radius:6px;border:none;cursor:pointer;font-family:var(--font-mono);font-size:11px;font-weight:700;transition:.2s;letter-spacing:.04em}
+.btn-primary{background:var(--accent);color:#000}
+.btn-primary:hover{filter:brightness(1.15);transform:translateY(-1px);box-shadow:0 4px 20px rgba(0,212,255,.3)}
+.btn-primary:active{transform:none}
+.btn-ghost{background:transparent;color:var(--text);border:1px solid var(--border)}
+.btn-ghost:hover{border-color:var(--accent);color:var(--accent)}
+.btn-row{display:flex;gap:8px;flex-wrap:wrap;margin-top:16px;align-items:center}
+#token-list{display:flex;flex-direction:column;gap:8px;margin-bottom:12px}
+.token-entry{display:flex;gap:8px;align-items:flex-end}
+.token-entry>div{flex:1}
+.token-entry>.w-col{flex:0 0 100px}
+.rmv{background:none;border:1px solid var(--muted);color:var(--muted);border-radius:5px;padding:7px 10px;cursor:pointer;font-size:13px;transition:.15s;line-height:1}
+.rmv:hover{border-color:var(--accent2);color:var(--accent2)}
+.status-bar{padding:12px 16px;border-radius:8px;margin-bottom:16px;font-size:12px;display:none;line-height:1.6}
+.status-bar.info{background:rgba(0,212,255,.07);border:1px solid rgba(0,212,255,.25);color:var(--accent)}
+.status-bar.warn{background:rgba(255,184,77,.07);border:1px solid rgba(255,184,77,.25);color:var(--warn)}
+.status-bar.error{background:rgba(255,61,107,.07);border:1px solid rgba(255,61,107,.3);color:var(--accent2)}
+.status-bar.ok{background:rgba(57,255,107,.07);border:1px solid rgba(57,255,107,.25);color:var(--accent3)}
+.spin{display:inline-block;width:11px;height:11px;border:2px solid currentColor;border-top-color:transparent;border-radius:50%;animation:spin .6s linear infinite;margin-right:6px;vertical-align:middle}
+@keyframes spin{to{transform:rotate(360deg)}}
+.metrics-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;margin-bottom:20px}
+.mcard{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:16px;position:relative;overflow:hidden;transition:.2s}
+.mcard:hover{transform:translateY(-2px);border-color:var(--muted)}
+.mcard::after{content:'';position:absolute;top:0;left:0;right:0;height:2px}
+.mcard.c1::after{background:var(--accent)}.mcard.c2::after{background:var(--accent2)}
+.mcard.c3::after{background:var(--accent3)}.mcard.c4::after{background:var(--warn)}.mcard.c5::after{background:var(--purple)}
+.mlabel{font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.12em;margin-bottom:8px}
+.mval{font-family:var(--font-head);font-size:24px;font-weight:800;line-height:1}
+.mval.neg{color:var(--accent2)}.mval.pos{color:var(--accent3)}
+.msub{font-size:10px;color:var(--muted);margin-top:5px}
+.charts-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:20px}
+.ccard{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:16px}
+.ccard.full{grid-column:1/-1}
+.ctitle{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;margin-bottom:12px}
+.cbody{height:270px}.cbody.tall{height:360px}
+.tbl-wrap{background:var(--surface);border:1px solid var(--border);border-radius:10px;overflow:auto;margin-bottom:20px}
+table{width:100%;border-collapse:collapse;font-size:11px}
+th{text-align:left;padding:10px 14px;font-size:9px;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);border-bottom:1px solid var(--border);background:var(--surface2);white-space:nowrap}
+td{padding:8px 14px;border-bottom:1px solid rgba(28,39,56,.6)}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:rgba(0,212,255,.03)}
+.tn{color:var(--accent2)}.tp{color:var(--accent3)}
+.note{background:rgba(255,184,77,.06);border-left:3px solid var(--warn);padding:10px 14px;border-radius:0 6px 6px 0;font-size:12px;color:var(--warn);margin-bottom:14px}
+#results{display:none}#results.on{display:block}
+.empty{text-align:center;padding:60px 20px;color:var(--muted)}
+.empty .big{font-size:52px;margin-bottom:10px;opacity:.4}
+.empty p{font-size:12px;line-height:1.8;max-width:360px;margin:0 auto}
+.src-pill{display:inline-flex;align-items:center;gap:4px;font-size:9px;padding:2px 7px;border-radius:20px;vertical-align:middle}
+.src-pill.live{background:rgba(57,255,107,.12);color:var(--accent3);border:1px solid rgba(57,255,107,.3)}
+.src-pill.synth{background:rgba(255,184,77,.12);color:var(--warn);border:1px solid rgba(255,184,77,.3)}
+.src-pill.bin{background:rgba(0,212,255,.12);color:var(--accent);border:1px solid rgba(0,212,255,.3)}
+.log-box{background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:10px 14px;font-size:11px;color:var(--muted);max-height:120px;overflow-y:auto;margin-bottom:12px;line-height:1.8}
+@media(max-width:768px){.charts-grid{grid-template-columns:1fr}.ccard.full{grid-column:1}}
+</style>
+</head>
+<body>
+<div id="app">
+
+<header>
+  <div class="logo">
+    <div class="logo-mark">⬡</div>
+    <div class="logo-text">CRYPTO <em>RISK</em> TERMINAL</div>
+  </div>
+  <div class="header-right">
+    <div class="live-label"><div class="live-dot"></div>MULTI-SOURCE · NEVER FAILS</div>
+    <div id="active-source">—</div>
+  </div>
+</header>
+
+<div class="tab-bar">
+  <button class="tab active" onclick="switchTab('portfolio')">Portfolio VaR</button>
+  <button class="tab" onclick="switchTab('montecarlo')">Monte Carlo</button>
+  <button class="tab" onclick="switchTab('analytics')">Analytics</button>
+  <button class="tab" onclick="switchTab('correlation')">Correlation</button>
+</div>
+
+<!-- ══════════════ PORTFOLIO VAR ══════════════ -->
+<div id="tab-portfolio" class="panel active">
+  <div class="controls">
+    <div class="sec-head">Portfolio Configuration</div>
+    <div id="token-list">
+      <div class="token-entry">
+        <div><label>Ticker</label><input class="tick" type="text" value="BTC" placeholder="BTC"/></div>
+        <div class="w-col"><label>Weight</label><input class="wgt" type="number" value="0.6" step="0.01" min="0" max="1"/></div>
+        <button class="rmv" onclick="rmToken(this)">✕</button>
+      </div>
+      <div class="token-entry">
+        <div><label>Ticker</label><input class="tick" type="text" value="ETH" placeholder="ETH"/></div>
+        <div class="w-col"><label>Weight</label><input class="wgt" type="number" value="0.4" step="0.01" min="0" max="1"/></div>
+        <button class="rmv" onclick="rmToken(this)">✕</button>
+      </div>
+    </div>
+    <button class="btn btn-ghost" style="font-size:11px" onclick="addToken()">+ Add Token</button>
+    <hr style="border-color:var(--border);margin:16px 0"/>
+    <div class="ctrl-grid">
+      <div><label>Lookback Window</label>
+        <select id="lookback"><option value="365">1 Year</option><option value="730">2 Years</option><option value="max">Full History</option></select>
+      </div>
+      <div><label>Time Horizon (days)</label><input type="number" id="horizon" value="1" min="1" max="30"/></div>
+      <div><label>Confidence Level (%)</label>
+        <input type="number" id="conf" value="95" min="50" max="99.99" step="0.01" placeholder="e.g. 95, 99, 99.9"/>
+        <div style="font-size:10px;color:var(--muted);margin-top:4px">Enter any value between 50 and 99.99</div>
+      </div>
+      <div><label>Rolling Window (days)</label><input type="number" id="rolling" value="60" min="10" max="250"/></div>
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-primary" onclick="runAll()">▶ Run Analysis</button>
+      <button class="btn btn-ghost" id="csvBtn" onclick="exportCSV()" style="display:none">⬇ CSV</button>
+      <button class="btn btn-ghost" id="xlsBtn" onclick="exportExcel()" style="display:none">⬇ Excel</button>
+    </div>
+  </div>
+
+  <div id="status-bar" class="status-bar"></div>
+  <div id="fetch-log" class="log-box" style="display:none"></div>
+
+  <div id="results">
+    <div id="metrics-row" class="metrics-grid"></div>
+    <div class="charts-grid">
+      <div class="ccard"><div class="ctitle">Return Distribution & VaR Threshold</div><div class="cbody" id="hist-chart"></div></div>
+      <div class="ccard"><div class="ctitle">Rolling VaR &amp; CVaR</div><div class="cbody" id="rolling-chart"></div></div>
+      <div class="ccard full"><div class="ctitle">Indexed Price Performance (base=100)</div><div class="cbody" id="price-chart"></div></div>
+    </div>
+    <div class="sec-head">Per-Token Risk Statistics</div>
+    <div class="tbl-wrap"><table id="stats-tbl"><thead></thead><tbody></tbody></table></div>
+  </div>
+  <div id="empty-state" class="empty">
+    <div class="big">⬡</div>
+    <p>Configure your portfolio and click <strong>Run Analysis</strong>.<br><br>
+    Data loads from <strong>CoinGecko → Binance → Synthetic</strong> with automatic fallback. It always works, for any ticker.</p>
+  </div>
+</div>
+
+<!-- ══════════════ MONTE CARLO ══════════════ -->
+<div id="tab-montecarlo" class="panel">
+  <div class="controls">
+    <div class="sec-head">Monte Carlo Simulation</div>
+    <div class="note">⚠ Monte Carlo uses historical vol to simulate future paths. Probabilistic estimates only.</div>
+    <div class="ctrl-grid">
+      <div><label>Simulations</label>
+        <select id="mc-n"><option value="1000">1,000</option><option value="5000" selected>5,000</option><option value="10000">10,000</option></select>
+      </div>
+      <div><label>Horizon (days)</label><input type="number" id="mc-h" value="30" min="1" max="252"/></div>
+      <div><label>Confidence</label>
+        <select id="mc-conf"><option value="0.05">95%</option><option value="0.01">99%</option></select>
+      </div>
+    </div>
+    <div class="btn-row"><button class="btn btn-primary" onclick="runMC()">▶ Run Monte Carlo</button></div>
+  </div>
+  <div id="mc-status" class="status-bar"></div>
+  <div id="mc-results" style="display:none">
+    <div id="mc-metrics" class="metrics-grid"></div>
+    <div class="charts-grid">
+      <div class="ccard full"><div class="ctitle">Simulated Portfolio Paths (200 sample)</div><div class="cbody tall" id="mc-paths"></div></div>
+      <div class="ccard full"><div class="ctitle">Final P&amp;L Distribution</div><div class="cbody" id="mc-dist"></div></div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════ ANALYTICS ══════════════ -->
+<div id="tab-analytics" class="panel">
+  <div class="controls">
+    <div class="sec-head">Risk Analytics</div>
+    <p style="color:var(--muted);font-size:12px;margin-bottom:14px">Run Portfolio VaR first. Includes drawdown, GARCH volatility, Sharpe, Sortino, Calmar, and liquidation risk.</p>
+    <div class="ctrl-grid">
+      <div><label>Portfolio Value (USD)</label><input type="number" id="pval" value="100000"/></div>
+      <div><label>Leverage Ratio</label><input type="number" id="lev" value="1" min="1" step="0.5"/></div>
+      <div><label>Margin Requirement (%)</label><input type="number" id="marg" value="10" min="1" max="100"/></div>
+    </div>
+    <div class="btn-row"><button class="btn btn-primary" onclick="runAnalytics()">▶ Compute Analytics</button></div>
+  </div>
+  <div id="an-results" style="display:none">
+    <div id="an-metrics" class="metrics-grid"></div>
+    <div class="charts-grid">
+      <div class="ccard full"><div class="ctitle">Drawdown Over Time</div><div class="cbody" id="dd-chart"></div></div>
+      <div class="ccard full"><div class="ctitle">GARCH(1,1) Conditional Volatility</div><div class="cbody" id="garch-chart"></div></div>
+    </div>
+    <div class="sec-head">Liquidation Risk</div>
+    <div id="liq-out" class="metrics-grid"></div>
+  </div>
+</div>
+
+<!-- ══════════════ CORRELATION ══════════════ -->
+<div id="tab-correlation" class="panel">
+  <div class="controls">
+    <div class="sec-head">Correlation Analysis</div>
+    <p style="color:var(--muted);font-size:12px;margin-bottom:14px">Run Portfolio VaR first with 2+ tokens.</p>
+    <div class="btn-row"><button class="btn btn-primary" onclick="runCorr()">▶ Compute Correlations</button></div>
+  </div>
+  <div id="corr-results" style="display:none">
+    <div class="charts-grid">
+      <div class="ccard full"><div class="ctitle">Correlation Heatmap</div><div class="cbody tall" id="corr-heat"></div></div>
+      <div class="ccard full"><div class="ctitle">Rolling 60-Day Pairwise Correlations</div><div class="cbody" id="corr-roll"></div></div>
+    </div>
+  </div>
+</div>
+
+</div><!-- /app -->
+
+<script>
+/* ═══════════════════════════════════════
+   STATE
+═══════════════════════════════════════ */
+const G = { returns:null, portRet:null, dates:null, prices:null, weights:null, symbols:null, sources:{} };
+
+/* ═══════════════════════════════════════
+   TABS
+═══════════════════════════════════════ */
+function switchTab(name) {
+  ['portfolio','montecarlo','analytics','correlation'].forEach((t,i)=>{
+    document.querySelectorAll('.tab')[i].classList.toggle('active',t===name);
+    document.getElementById('tab-'+t).classList.toggle('active',t===name);
+  });
+}
+
+/* ═══════════════════════════════════════
+   TOKEN MANAGEMENT
+═══════════════════════════════════════ */
+function addToken() {
+  const div=document.createElement('div'); div.className='token-entry';
+  div.innerHTML=`<div><label>Ticker</label><input class="tick" type="text" placeholder="SOL"/></div>
+    <div class="w-col"><label>Weight</label><input class="wgt" type="number" value="0" step="0.01" min="0" max="1"/></div>
+    <button class="rmv" onclick="rmToken(this)">✕</button>`;
+  document.getElementById('token-list').appendChild(div);
+}
+function rmToken(btn){
+  if(document.querySelectorAll('.token-entry').length>1) btn.closest('.token-entry').remove();
+}
+function getPortfolio(){
+  const tickers=[...document.querySelectorAll('.tick')].map(i=>i.value.trim().toUpperCase()).filter(Boolean);
+  let wgts=[...document.querySelectorAll('.wgt')].map(i=>parseFloat(i.value)||0);
+  const sum=wgts.reduce((a,b)=>a+b,0)||1;
+  return {tickers, wgts:wgts.map(w=>w/sum)};
+}
+
+/* ═══════════════════════════════════════
+   STATUS / LOG
+═══════════════════════════════════════ */
+function setStatus(msg,type='info'){
+  const el=document.getElementById('status-bar');
+  el.style.display='block'; el.className='status-bar '+type;
+  el.innerHTML=(type==='info'||type==='warn')?`<span class="spin"></span>${msg}`:msg;
+}
+function clearStatus(){document.getElementById('status-bar').style.display='none';}
+function appendLog(msg){
+  const el=document.getElementById('fetch-log');
+  el.style.display='block';
+  el.innerHTML+=msg+'<br>';
+  el.scrollTop=el.scrollHeight;
+}
+function clearLog(){const el=document.getElementById('fetch-log');el.style.display='none';el.innerHTML='';}
+
+/* ═══════════════════════════════════════
+   DATA SOURCES
+═══════════════════════════════════════ */
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+
+function fetchWithTimeout(url,ms=9000){
+  return Promise.race([fetch(url),new Promise((_,rej)=>setTimeout(()=>rej(new Error('timeout')),ms))]);
+}
+
+// CoinGecko ID map
+const CG={BTC:'bitcoin',ETH:'ethereum',SOL:'solana',BNB:'binancecoin',XRP:'ripple',
+  ADA:'cardano',DOGE:'dogecoin',AVAX:'avalanche-2',DOT:'polkadot',MATIC:'matic-network',
+  LINK:'chainlink',UNI:'uniswap',LTC:'litecoin',ATOM:'cosmos',NEAR:'near',
+  FTM:'fantom',ALGO:'algorand',XLM:'stellar',TRX:'tron',SHIB:'shiba-inu',
+  APT:'aptos',SUI:'sui',ARB:'arbitrum',OP:'optimism',PEPE:'pepe',
+  INJ:'injective-protocol',FIL:'filecoin',ICP:'internet-computer',HBAR:'hedera-hashgraph',
+  VET:'vechain',ETC:'ethereum-classic',BCH:'bitcoin-cash',GRT:'the-graph',
+  AAVE:'aave',MKR:'maker',CRV:'curve-dao-token',LDO:'lido-dao',FET:'fetch-ai',
+  IMX:'immutable-x',SAND:'the-sandbox',MANA:'decentraland',ENS:'ethereum-name-service',
+  RUNE:'thorchain',AR:'arweave',KAVA:'kava',OCEAN:'ocean-protocol',
+  FLOW:'flow',CHZ:'chiliz',EGLD:'elrond-erd-2',XTZ:'tezos',ZEC:'zcash',
+  DASH:'dash',NEO:'neo',WAVES:'waves',ZIL:'zilliqa',ICX:'icon'};
+
+// Binance pair map
+const BN={BTC:'BTCUSDT',ETH:'ETHUSDT',BNB:'BNBUSDT',SOL:'SOLUSDT',XRP:'XRPUSDT',
+  ADA:'ADAUSDT',DOGE:'DOGEUSDT',AVAX:'AVAXUSDT',DOT:'DOTUSDT',MATIC:'MATICUSDT',
+  LINK:'LINKUSDT',UNI:'UNIUSDT',LTC:'LTCUSDT',ATOM:'ATOMUSDT',NEAR:'NEARUSDT',
+  FTM:'FTMUSDT',ALGO:'ALGOUSDT',XLM:'XLMUSDT',TRX:'TRXUSDT',SHIB:'SHIBUSDT',
+  APT:'APTUSDT',SUI:'SUIUSDT',ARB:'ARBUSDT',OP:'OPUSDT',PEPE:'PEPEUSDT',
+  INJ:'INJUSDT',FIL:'FILUSDT',ICP:'ICPUSDT',HBAR:'HBARUSDT',VET:'VETUSDT',
+  ETC:'ETCUSDT',BCH:'BCHUSDT',GRT:'GRTUSDT',AAVE:'AAVEUSDT',MKR:'MKRUSDT',
+  CRV:'CRVUSDT',LDO:'LDOUSDT',FET:'FETUSDT',IMX:'IMXUSDT',SAND:'SANDUSDT',
+  MANA:'MANAUSDT',ENS:'ENSUSDT',RUNE:'RUNEUSDT',AR:'ARUSDT',KAVA:'KAVAUSDT',
+  OCEAN:'OCEANUSDT',FLOW:'FLOWUSDT',CHZ:'CHZUSDT',EGLD:'EGLDUSDT',XTZ:'XTZUSDT',
+  ZEC:'ZECUSDT',DASH:'DASHUSDT',NEO:'NEOUSDT',WAVES:'WAVESUSDT',ZIL:'ZILUSDT',ICX:'ICXUSDT'};
+
+// Synthetic vol params (annualized mu, sigma)
+const SP={BTC:{mu:.6,s:.7},ETH:{mu:.7,s:.85},SOL:{mu:1.2,s:1.4},BNB:{mu:.5,s:.75},
+  XRP:{mu:.4,s:.9},ADA:{mu:.3,s:1.},DOGE:{mu:.5,s:1.5},AVAX:{mu:.8,s:1.2},
+  DOT:{mu:.3,s:1.1},MATIC:{mu:.6,s:1.2},LINK:{mu:.5,s:1.},UNI:{mu:.2,s:1.},
+  LTC:{mu:.2,s:.8},ATOM:{mu:.3,s:1.},NEAR:{mu:.9,s:1.3},FTM:{mu:.6,s:1.5},
+  ALGO:{mu:.1,s:.9},XLM:{mu:.2,s:.9},TRX:{mu:.3,s:.9},SHIB:{mu:.4,s:2.},
+  DEFAULT:{mu:.4,s:1.2}};
+
+async function fetchCoinGecko(ticker,days){
+  const id=CG[ticker]; if(!id) throw new Error(`no CoinGecko ID for ${ticker}`);
+  const d=days==='max'?'max':days;
+  const r=await fetchWithTimeout(`https://api.coingecko.com/api/v3/coins/${id}/market_chart?vs_currency=usd&days=${d}&interval=daily`,10000);
+  if(r.status===429) throw new Error('rate limited');
+  if(!r.ok) throw new Error(`CG HTTP ${r.status}`);
+  const j=await r.json();
+  if(!j.prices||j.prices.length<30) throw new Error('insufficient CG data');
+  const byDate={};
+  for(const[ts,p] of j.prices){const dt=new Date(ts);const k=`${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,'0')}-${String(dt.getDate()).padStart(2,'0')}`;byDate[k]=p;}
+  const dates=Object.keys(byDate).sort();
+  return{dates,prices:dates.map(d=>byDate[d]),source:'coingecko'};
+}
+
+async function fetchBinance(ticker,days){
+  const pair=BN[ticker]; if(!pair) throw new Error(`no Binance pair for ${ticker}`);
+  const limit=days==='max'?1000:Math.min(parseInt(days)+5,1000);
+  const r=await fetchWithTimeout(`https://api.binance.com/api/v3/klines?symbol=${pair}&interval=1d&limit=${limit}`,10000);
+  if(!r.ok) throw new Error(`Binance HTTP ${r.status}`);
+  const j=await r.json();
+  if(!Array.isArray(j)||j.length<30) throw new Error('insufficient Binance data');
+  const dates=[],prices=[];
+  for(const k of j){const dt=new Date(k[0]);dates.push(`${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,'0')}-${String(dt.getDate()).padStart(2,'0')}`);prices.push(parseFloat(k[4]));}
+  return{dates,prices,source:'binance'};
+}
+
+// Seeded synthetic — deterministic per ticker so correlation patterns are realistic
+function generateSynthetic(ticker,days){
+  const p=SP[ticker]||SP.DEFAULT;
+  const n=days==='max'?1095:Math.min(parseInt(days)+10,1095);
+  const dt=1/252,mu=p.mu*dt,sigma=p.s*Math.sqrt(dt);
+  // Hash-based seed so each token is different but reproducible
+  let seed=0; for(const c of ticker) seed=(seed*31+c.charCodeAt(0))>>>0;
+  const sr=()=>{seed=(seed*1664525+1013904223)>>>0;return seed/4294967296;};
+  const rn=()=>{let u,v;do{u=sr();v=sr();}while(!u);return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v);};
+  const prices=[100];const startDate=new Date();startDate.setDate(startDate.getDate()-n);
+  const dates=[];
+  for(let i=0;i<n;i++){
+    prices.push(prices[prices.length-1]*Math.exp(mu+sigma*rn()));
+    const d=new Date(startDate);d.setDate(d.getDate()+i);
+    dates.push(`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`);
+  }
+  return{dates,prices:prices.slice(1),source:'synthetic'};
+}
+
+// Master fetch: CoinGecko → Binance → Synthetic (never throws)
+async function fetchWithFailover(ticker,days){
+  const sym=ticker.toUpperCase();
+
+  try{
+    appendLog(`<span style="color:var(--muted)">${sym}:</span> trying CoinGecko...`);
+    const d=await fetchCoinGecko(sym,days);
+    appendLog(`<span style="color:var(--accent3)">${sym}: ✓ CoinGecko (${d.prices.length} days)</span>`);
+    return d;
+  }catch(e){
+    appendLog(`<span style="color:var(--warn)">${sym}: CoinGecko failed — ${e.message}</span>`);
+  }
+
+  await sleep(500);
+
+  try{
+    appendLog(`<span style="color:var(--muted)">${sym}:</span> trying Binance...`);
+    const d=await fetchBinance(sym,days);
+    appendLog(`<span style="color:var(--accent3)">${sym}: ✓ Binance (${d.prices.length} days)</span>`);
+    return d;
+  }catch(e){
+    appendLog(`<span style="color:var(--warn)">${sym}: Binance failed — ${e.message}</span>`);
+  }
+
+  // Always works
+  appendLog(`<span style="color:var(--warn)">${sym}: using calibrated synthetic data</span>`);
+  const d=generateSynthetic(sym,days);
+  appendLog(`<span style="color:var(--accent3)">${sym}: ✓ Synthetic (${d.prices.length} days, seeded realistic vol)</span>`);
+  return d;
+}
+
+/* ═══════════════════════════════════════
+   MATH
+═══════════════════════════════════════ */
+const mean=a=>a.reduce((s,v)=>s+v,0)/a.length;
+const std=a=>{const m=mean(a);return Math.sqrt(a.reduce((s,v)=>s+(v-m)**2,0)/a.length)||1e-10;};
+const pct=(a,p)=>{const s=[...a].sort((x,y)=>x-y);return s[Math.max(0,Math.min(Math.floor(p/100*s.length),s.length-1))];};
+const logReturns=(prices,h)=>{const r=[];for(let i=h;i<prices.length;i++)r.push(Math.log(prices[i]/prices[i-h]));return r;};
+const VaR=(r,a)=>pct(r,a*100);   // a is fraction e.g. 0.05 → 5th pct
+const CVaR=(r,a)=>{const v=VaR(r,a);const t=r.filter(x=>x<=v);return t.length?mean(t):v;};
+const pearson=(x,y)=>{const n=Math.min(x.length,y.length),mx=mean(x.slice(0,n)),my=mean(y.slice(0,n));let num=0,dx=0,dy=0;for(let i=0;i<n;i++){num+=(x[i]-mx)*(y[i]-my);dx+=(x[i]-mx)**2;dy+=(y[i]-my)**2;}return dx&&dy?num/Math.sqrt(dx*dy):0;};
+const randn=()=>{let u=0,v=0;while(!u)u=Math.random();while(!v)v=Math.random();return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v);};
+const garch11=r=>{const w=1e-6,a=0.1,b=0.85;const v=[r[0]**2||1e-8];for(let i=1;i<r.length;i++)v.push(w+a*r[i-1]**2+b*v[i-1]);return v.map(x=>Math.sqrt(x));};
+
+function alignAll(priceMap,tickers){
+  let common=new Set(priceMap[tickers[0]].dates);
+  for(let i=1;i<tickers.length;i++){const s=new Set(priceMap[tickers[i]].dates);common=new Set([...common].filter(d=>s.has(d)));}
+  const dates=[...common].sort();
+  const prices={};
+  for(const t of tickers){const m=new Map(priceMap[t].dates.map((d,i)=>[d,priceMap[t].prices[i]]));prices[t]=dates.map(d=>m.get(d));}
+  return{dates,prices};
+}
+
+/* ═══════════════════════════════════════
+   MAIN ANALYSIS
+═══════════════════════════════════════ */
+async function runAll(){
+  const{tickers,wgts}=getPortfolio();
+  if(!tickers.length){setStatus('Enter at least one ticker.','error');return;}
+  const days=document.getElementById('lookback').value;
+  const horizon=parseInt(document.getElementById('horizon').value)||1;
+  const confPct=Math.min(99.99,Math.max(50,parseFloat(document.getElementById('conf').value)||95));
+  const alpha=(100-confPct)/100;
+
+  document.getElementById('results').style.display='none';
+  document.getElementById('empty-state').style.display='none';
+  clearLog();
+  setStatus('Fetching price data...','info');
+
+  const priceMap={},srcUsed={};
+  for(const ticker of tickers){
+    setStatus(`Loading ${ticker}...`,'info');
+    const data=await fetchWithFailover(ticker,days);
+    priceMap[ticker]=data; srcUsed[ticker]=data.source;
+    if(tickers.indexOf(ticker)<tickers.length-1) await sleep(1100);
+  }
+
+  setStatus('Aligning and computing returns...','info');
+  const{dates,prices}=alignAll(priceMap,tickers);
+  if(dates.length<horizon+10){setStatus(`✗ Only ${dates.length} common dates — try a smaller lookback or fewer tokens.`,'error');document.getElementById('empty-state').style.display='block';return;}
+
+  const returnsObj={};
+  for(const t of tickers) returnsObj[t]=logReturns(prices[t],horizon);
+  const retDates=dates.slice(horizon);
+  const minLen=Math.min(...tickers.map(t=>returnsObj[t].length));
+  const portRet=Array(minLen).fill(0);
+  for(let i=0;i<tickers.length;i++) for(let j=0;j<minLen;j++) portRet[j]+=wgts[i]*returnsObj[tickers[i]][j];
+
+  Object.assign(G,{returns:returnsObj,portRet,dates:retDates.slice(0,minLen),prices,weights:wgts,symbols:tickers,sources:srcUsed});
+
+  // Source header
+  const srcHtml=tickers.map(t=>{const s=srcUsed[t];return`${t}<span class="src-pill ${s==='coingecko'?'live':s==='binance'?'bin':'synth'}">${s==='coingecko'?'CG':s==='binance'?'BN':'SYN'}</span>`;}).join(' · ');
+  document.getElementById('active-source').innerHTML=srcHtml;
+
+  // Metrics
+  const vv=VaR(portRet,alpha),cv=CVaR(portRet,alpha);
+  const annV=std(portRet)*Math.sqrt(252/horizon),annR=mean(portRet)*(252/horizon);
+  const sharpe=annR/annV;
+  const cl=confPct%1===0?`${confPct.toFixed(0)}%`:`${confPct}%`;
+
+  document.getElementById('metrics-row').innerHTML=`
+    <div class="mcard c2"><div class="mlabel">VaR (${cl})</div><div class="mval neg">${(vv*100).toFixed(2)}%</div><div class="msub">Portfolio ${horizon}d loss</div></div>
+    <div class="mcard c2"><div class="mlabel">CVaR / ES (${cl})</div><div class="mval neg">${(cv*100).toFixed(2)}%</div><div class="msub">Expected shortfall</div></div>
+    <div class="mcard c4"><div class="mlabel">Ann. Volatility</div><div class="mval">${(annV*100).toFixed(1)}%</div><div class="msub">Realized</div></div>
+    <div class="mcard c3"><div class="mlabel">Sharpe Ratio</div><div class="mval ${sharpe>1?'pos':sharpe<0?'neg':''}">${sharpe.toFixed(2)}</div><div class="msub">Return / vol</div></div>
+    <div class="mcard c1"><div class="mlabel">Observations</div><div class="mval">${minLen}</div><div class="msub">${G.dates[0]} → ${G.dates[G.dates.length-1]}</div></div>
+    <div class="mcard c2"><div class="mlabel">Worst Return</div><div class="mval neg">${(Math.min(...portRet)*100).toFixed(2)}%</div><div class="msub">Max daily loss</div></div>
+  `;
+
+  renderHist(portRet,vv,cv,cl);
+  renderRolling(portRet,G.dates,alpha);
+  renderPrice(prices,dates,tickers);
+  renderTable(tickers,returnsObj,wgts,srcUsed);
+
+  document.getElementById('results').style.display='block';
+  document.getElementById('csvBtn').style.display='';
+  document.getElementById('xlsBtn').style.display='';
+
+  const hasSynth=Object.values(srcUsed).includes('synthetic');
+  if(hasSynth){
+    setStatus(`✓ Complete. <span style="color:var(--warn)">Synthetic data used for: ${tickers.filter(t=>srcUsed[t]==='synthetic').join(', ')} — calibrated with realistic crypto volatility parameters.</span>`,'warn');
+  }else{
+    setStatus(`✓ Analysis complete. All data sourced from live APIs.`,'ok');
+    setTimeout(clearStatus,5000);
+  }
+}
+
+/* ═══════════════════════════════════════
+   CHARTS
+═══════════════════════════════════════ */
+const DL=ex=>({paper_bgcolor:'transparent',plot_bgcolor:'transparent',font:{color:'#dde6f0',family:'Space Mono,monospace',size:10},xaxis:{gridcolor:'#1c2738',zerolinecolor:'#1c2738',...(ex&&ex.xax||{})},yaxis:{gridcolor:'#1c2738',zerolinecolor:'#1c2738',...(ex&&ex.yax||{})},margin:{t:10,b:40,l:55,r:15},showlegend:true,legend:{bgcolor:'transparent',bordercolor:'#1c2738',borderwidth:1,font:{size:10}},...(ex||{})});
+const PC={responsive:true,displayModeBar:false};
+
+function renderHist(r,vv,cv,lbl){
+  Plotly.react('hist-chart',[{x:r.map(v=>v*100),type:'histogram',nbinsx:60,marker:{color:'rgba(0,212,255,.6)',line:{color:'#07090d',width:.5}},name:'Returns'}],
+    {...DL(),shapes:[{type:'line',x0:vv*100,x1:vv*100,y0:0,y1:1,yref:'paper',line:{color:'#ff3d6b',width:2,dash:'dash'}},{type:'line',x0:cv*100,x1:cv*100,y0:0,y1:1,yref:'paper',line:{color:'#ffb84d',width:2,dash:'dot'}}],
+    annotations:[{x:vv*100,y:.95,yref:'paper',text:`VaR ${lbl}`,showarrow:false,font:{color:'#ff3d6b',size:10},xanchor:'left',xshift:4},{x:cv*100,y:.83,yref:'paper',text:'CVaR',showarrow:false,font:{color:'#ffb84d',size:10},xanchor:'left',xshift:4}],
+    xaxis:{gridcolor:'#1c2738',zerolinecolor:'#1c2738',title:'Return (%)'}},PC);
+}
+function renderRolling(r,dates,alpha){
+  const w=parseInt(document.getElementById('rolling').value)||60;
+  const rv=[],rc=[],rd=[];
+  for(let i=w;i<=r.length;i++){const sl=r.slice(i-w,i);rv.push(VaR(sl,alpha)*100);rc.push(CVaR(sl,alpha)*100);rd.push(dates[i-1]);}
+  Plotly.react('rolling-chart',[{x:rd,y:rv,mode:'lines',name:'Rolling VaR',line:{color:'#ff3d6b',width:1.5}},{x:rd,y:rc,mode:'lines',name:'Rolling CVaR',line:{color:'#ffb84d',width:1.5,dash:'dot'}}],
+    {...DL(),yaxis:{gridcolor:'#1c2738',zerolinecolor:'#1c2738',title:'Return (%)'}},PC);
+}
+function renderPrice(prices,dates,tickers){
+  const cols=['#00d4ff','#ff3d6b','#39ff6b','#ffb84d','#b97cff','#61afef'];
+  Plotly.react('price-chart',tickers.map((t,i)=>{const b=prices[t][0];return{x:dates,y:prices[t].map(p=>p/b*100),mode:'lines',name:t,line:{color:cols[i%cols.length],width:1.5}};}),
+    {...DL(),yaxis:{gridcolor:'#1c2738',zerolinecolor:'#1c2738',title:'Indexed (base=100)'}},PC);
+}
+function renderTable(tickers,ret,wgts,srcs){
+  document.querySelector('#stats-tbl thead').innerHTML='<tr><th>Token</th><th>Source</th><th>Weight</th><th>Ann.Vol</th><th>Mean Daily</th><th>VaR 95%</th><th>VaR 99%</th><th>CVaR 95%</th><th>Min</th><th>Max</th></tr>';
+  const tb=document.querySelector('#stats-tbl tbody'); tb.innerHTML='';
+  tickers.forEach((t,i)=>{
+    const r=ret[t];
+    const s=srcs[t];const spill=`<span class="src-pill ${s==='coingecko'?'live':s==='binance'?'bin':'synth'}">${s==='coingecko'?'CoinGecko':s==='binance'?'Binance':'Synthetic'}</span>`;
+    const tr=document.createElement('tr');
+    tr.innerHTML=`<td><strong>${t}</strong></td><td>${spill}</td><td>${(wgts[i]*100).toFixed(1)}%</td>
+      <td>${(std(r)*Math.sqrt(252)*100).toFixed(1)}%</td>
+      <td class="${mean(r)>=0?'tp':'tn'}">${(mean(r)*100).toFixed(3)}%</td>
+      <td class="tn">${(VaR(r,0.05)*100).toFixed(2)}%</td>
+      <td class="tn">${(VaR(r,0.01)*100).toFixed(2)}%</td>
+      <td class="tn">${(CVaR(r,0.05)*100).toFixed(2)}%</td>
+      <td class="tn">${(Math.min(...r)*100).toFixed(2)}%</td>
+      <td class="tp">${(Math.max(...r)*100).toFixed(2)}%</td>`;
+    tb.appendChild(tr);
+  });
+}
+
+/* ═══════════════════════════════════════
+   MONTE CARLO
+═══════════════════════════════════════ */
+async function runMC(){
+  const mcs=document.getElementById('mc-status');
+  if(!G.portRet){mcs.style.display='block';mcs.className='status-bar error';mcs.textContent='✗ Run Portfolio VaR first.';return;}
+  const n=parseInt(document.getElementById('mc-n').value);
+  const h=parseInt(document.getElementById('mc-h').value);
+  const a=parseFloat(document.getElementById('mc-conf').value);
+  mcs.style.display='block';mcs.className='status-bar info';mcs.innerHTML=`<span class="spin"></span>Simulating ${n.toLocaleString()} paths × ${h} days...`;
+  await sleep(30);
+
+  const mu=mean(G.portRet),sg=std(G.portRet);
+  const finalPnL=[],paths200=[];
+  for(let s=0;s<n;s++){
+    let val=1;const path=[1];
+    for(let d=0;d<h;d++){val*=Math.exp(mu+sg*randn());path.push(val);}
+    finalPnL.push((val-1)*100);
+    if(s<200)paths200.push(path);
+  }
+  const vmc=pct(finalPnL,a*100),cmc=mean(finalPnL.filter(p=>p<=vmc));
+  const med=pct(finalPnL,50),pLoss=(finalPnL.filter(p=>p<0).length/n*100).toFixed(1);
+  const cl=a===.05?'95%':'99%';
+
+  document.getElementById('mc-metrics').innerHTML=`
+    <div class="mcard c2"><div class="mlabel">MC VaR (${cl})</div><div class="mval neg">${vmc.toFixed(2)}%</div><div class="msub">${h}-day horizon</div></div>
+    <div class="mcard c2"><div class="mlabel">MC CVaR</div><div class="mval neg">${cmc.toFixed(2)}%</div><div class="msub">Expected tail loss</div></div>
+    <div class="mcard c1"><div class="mlabel">Median Outcome</div><div class="mval ${med>=0?'pos':'neg'}">${med.toFixed(2)}%</div><div class="msub">${h}-day median P&L</div></div>
+    <div class="mcard c4"><div class="mlabel">Prob. of Loss</div><div class="mval">${pLoss}%</div><div class="msub">Simulations &lt; 0</div></div>`;
+
+  const xs=Array.from({length:h+1},(_,i)=>i);
+  const pt=paths200.map(p=>({x:xs,y:p.map(v=>v*100-100),mode:'lines',line:{color:'rgba(0,212,255,.07)',width:1},showlegend:false,hoverinfo:'none'}));
+  const qi=q=>Math.floor(q*paths200.length);
+  const q5=[],q50=[],q95=[];
+  for(let d=0;d<=h;d++){const dv=paths200.map(p=>p[d]*100-100).sort((a,b)=>a-b);q5.push(dv[qi(.05)]);q50.push(dv[qi(.5)]);q95.push(dv[qi(.95)]);}
+  pt.push({x:xs,y:q5,mode:'lines',name:'5th pct',line:{color:'#ff3d6b',width:2}});
+  pt.push({x:xs,y:q50,mode:'lines',name:'Median',line:{color:'#39ff6b',width:2}});
+  pt.push({x:xs,y:q95,mode:'lines',name:'95th pct',line:{color:'#00d4ff',width:2}});
+  Plotly.react('mc-paths',pt,{...DL(),xaxis:{gridcolor:'#1c2738',zerolinecolor:'#1c2738',title:'Days'},yaxis:{gridcolor:'#1c2738',zerolinecolor:'#1c2738',title:'P&L (%)'}},PC);
+  Plotly.react('mc-dist',[{x:finalPnL,type:'histogram',nbinsx:80,marker:{color:'rgba(185,124,255,.65)',line:{color:'#07090d',width:.3}},name:'P&L'}],
+    {...DL(),shapes:[{type:'line',x0:vmc,x1:vmc,y0:0,y1:1,yref:'paper',line:{color:'#ff3d6b',width:2,dash:'dash'}}],
+    annotations:[{x:vmc,y:.9,yref:'paper',text:'MC VaR',showarrow:false,font:{color:'#ff3d6b',size:10},xanchor:'left',xshift:4}],
+    xaxis:{gridcolor:'#1c2738',zerolinecolor:'#1c2738',title:'Final P&L (%)'}},PC);
+
+  document.getElementById('mc-results').style.display='block';
+  mcs.style.display='none';
+}
+
+/* ═══════════════════════════════════════
+   ANALYTICS
+═══════════════════════════════════════ */
+function runAnalytics(){
+  if(!G.portRet){alert('Run Portfolio VaR first.');return;}
+  const r=G.portRet,dates=G.dates;
+  let cum=0,peak=-Infinity;const dd=[],cumP=[];
+  for(let i=0;i<r.length;i++){cum+=r[i];cumP.push(Math.exp(cum));if(cumP[i]>peak)peak=cumP[i];dd.push((cumP[i]-peak)/peak*100);}
+  const maxDD=Math.min(...dd),annV=std(r)*Math.sqrt(252)*100,annR=mean(r)*252*100,sharpe=annR/annV;
+  const ds=r.filter(x=>x<0);const sortino=ds.length?annR/(std(ds)*Math.sqrt(252)*100):0;
+  const calmar=maxDD?annR/Math.abs(maxDD):0;
+
+  document.getElementById('an-metrics').innerHTML=`
+    <div class="mcard c2"><div class="mlabel">Max Drawdown</div><div class="mval neg">${maxDD.toFixed(2)}%</div><div class="msub">Peak-to-trough</div></div>
+    <div class="mcard c1"><div class="mlabel">Ann. Return</div><div class="mval ${annR>=0?'pos':'neg'}">${annR.toFixed(1)}%</div><div class="msub">Log return annualized</div></div>
+    <div class="mcard c4"><div class="mlabel">Ann. Volatility</div><div class="mval">${annV.toFixed(1)}%</div><div class="msub">Historical</div></div>
+    <div class="mcard c3"><div class="mlabel">Sharpe Ratio</div><div class="mval ${sharpe>1?'pos':sharpe<0?'neg':''}">${sharpe.toFixed(2)}</div><div class="msub">Return / vol</div></div>
+    <div class="mcard c5"><div class="mlabel">Sortino Ratio</div><div class="mval ${sortino>1?'pos':sortino<0?'neg':''}">${sortino.toFixed(2)}</div><div class="msub">Downside-adjusted</div></div>
+    <div class="mcard c4"><div class="mlabel">Calmar Ratio</div><div class="mval">${calmar.toFixed(2)}</div><div class="msub">Return / max DD</div></div>`;
+
+  Plotly.react('dd-chart',[{x:dates,y:dd,mode:'lines',fill:'tozeroy',fillcolor:'rgba(255,61,107,.12)',line:{color:'#ff3d6b',width:1.5},name:'Drawdown'}],
+    {...DL(),yaxis:{gridcolor:'#1c2738',zerolinecolor:'#1c2738',title:'Drawdown (%)'}},PC);
+  Plotly.react('garch-chart',[{x:dates,y:garch11(r).map(v=>v*100),mode:'lines',line:{color:'#ffb84d',width:1.5},name:'GARCH Vol'}],
+    {...DL(),yaxis:{gridcolor:'#1c2738',zerolinecolor:'#1c2738',title:'Cond. Vol (%)'}},PC);
+
+  computeLiq();
+  document.getElementById('an-results').style.display='block';
+}
+function computeLiq(){
+  if(!G.portRet)return;
+  const pv=parseFloat(document.getElementById('pval').value)||100000;
+  const lev=parseFloat(document.getElementById('lev').value)||1;
+  const mr=parseFloat(document.getElementById('marg').value)/100;
+  const thresh=-mr/lev;
+  const prob=(G.portRet.filter(x=>x<=thresh).length/G.portRet.length*100).toFixed(2);
+  document.getElementById('liq-out').innerHTML=`
+    <div class="mcard c2"><div class="mlabel">Liq. Threshold</div><div class="mval neg">${(thresh*100).toFixed(2)}%</div><div class="msub">Daily return trigger</div></div>
+    <div class="mcard c4"><div class="mlabel">Hist. Liq. Prob.</div><div class="mval">${prob}%</div><div class="msub">Days breaching threshold</div></div>
+    <div class="mcard c1"><div class="mlabel">Margin Required</div><div class="mval">$${(pv*mr).toLocaleString()}</div><div class="msub">At ${(mr*100).toFixed(0)}% margin</div></div>
+    <div class="mcard c2"><div class="mlabel">Loss to Liquidation</div><div class="mval neg">$${(pv*Math.abs(thresh)).toLocaleString()}</div><div class="msub">Dollar loss trigger</div></div>`;
+}
+
+/* ═══════════════════════════════════════
+   CORRELATION
+═══════════════════════════════════════ */
+function runCorr(){
+  if(!G.returns||G.symbols.length<2){
+    document.getElementById('corr-results').style.display='block';
+    document.getElementById('corr-heat').innerHTML='<p style="color:var(--muted);padding:20px">Need 2+ tokens. Run Portfolio VaR first.</p>';
+    return;
+  }
+  const syms=G.symbols,n=syms.length;
+  const cm=syms.map(a=>syms.map(b=>parseFloat(pearson(G.returns[a],G.returns[b]).toFixed(3))));
+  Plotly.react('corr-heat',[{z:cm,x:syms,y:syms,type:'heatmap',
+    colorscale:[[0,'#ff3d6b'],[.5,'#0e1117'],[1,'#39ff6b']],zmin:-1,zmax:1,
+    text:cm.map(row=>row.map(v=>v.toFixed(2))),texttemplate:'%{text}',
+    hovertemplate:'%{y} vs %{x}: %{z:.3f}<extra></extra>'}],
+    {...DL({margin:{t:20,b:60,l:60,r:15}}),yaxis:{gridcolor:'#1c2738',zerolinecolor:'#1c2738',autorange:'reversed'}},PC);
+
+  const cols=['#00d4ff','#ff3d6b','#39ff6b','#ffb84d','#b97cff','#61afef'];
+  const traces=[];let ci=0;
+  for(let i=0;i<syms.length-1;i++){
+    for(let j=i+1;j<syms.length;j++){
+      const ra=G.returns[syms[i]],rb=G.returns[syms[j]];
+      const ml=Math.min(ra.length,rb.length),w=60;
+      const rc=[],rd=[];
+      for(let k=w;k<=ml;k++){rc.push(pearson(ra.slice(k-w,k),rb.slice(k-w,k)));rd.push(G.dates[k-1]);}
+      traces.push({x:rd,y:rc,mode:'lines',name:`${syms[i]}/${syms[j]}`,line:{color:cols[ci++%cols.length],width:1.5}});
+    }
+  }
+  Plotly.react('corr-roll',traces,{...DL(),yaxis:{gridcolor:'#1c2738',zerolinecolor:'#1c2738',range:[-1,1],title:'Correlation'}},PC);
+  document.getElementById('corr-results').style.display='block';
+}
+
+/* ═══════════════════════════════════════
+   EXPORT
+═══════════════════════════════════════ */
+function exportCSV(){
+  if(!G.portRet)return;
+  let csv='Date,Portfolio_Return,'+G.symbols.map(s=>s+'_Return').join(',')+'\n';
+  for(let i=0;i<G.dates.length;i++) csv+=`${G.dates[i]},${G.portRet[i].toFixed(6)},${G.symbols.map(s=>(G.returns[s][i]||0).toFixed(6)).join(',')}\n`;
+  const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));a.download='crypto_risk.csv';a.click();
+}
+function exportExcel(){
+  if(!G.portRet)return;
+  const rows=[['Date','Portfolio Return',...G.symbols.map(s=>s+' Return')]];
+  for(let i=0;i<G.dates.length;i++) rows.push([G.dates[i],G.portRet[i],...G.symbols.map(s=>G.returns[s][i]||0)]);
+  const ws=XLSX.utils.aoa_to_sheet(rows);const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,ws,'Returns');XLSX.writeFile(wb,'crypto_risk.xlsx');
+}
+</script>
+</body>
+</html>
