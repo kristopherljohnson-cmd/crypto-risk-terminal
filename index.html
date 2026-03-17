@@ -947,8 +947,14 @@ async function runMC(){
   // ── DISTRIBUTION CHART ──
   Plotly.react('mc-dist',[{x:finalPnL,type:'histogram',nbinsx:80,marker:{color:'rgba(185,124,255,.65)',line:{color:'#07090d',width:.3}},name:'P&L'}],
     {...DL(),
-      shapes:[{type:'line',x0:vmc,x1:vmc,y0:0,y1:1,yref:'paper',line:{color:varColor,width:2,dash:'dash'}}],
-      annotations:[{x:vmc,y:.9,yref:'paper',text:`MC VaR (${tail})`,showarrow:false,font:{color:varColor,size:10},xanchor:isRight?'right':'left',xshift:isRight?-4:4}],
+      shapes:[
+        {type:'line',x0:vmc,x1:vmc,y0:0,y1:1,yref:'paper',line:{color:varColor,width:2,dash:'dash'}},
+        {type:'line',x0:cmc,x1:cmc,y0:0,y1:1,yref:'paper',line:{color:'#ffb84d',width:2,dash:'dot'}}
+      ],
+      annotations:[
+        {x:vmc,y:.9,yref:'paper',text:`MC VaR (${tail})`,showarrow:false,font:{color:varColor,size:10},xanchor:isRight?'right':'left',xshift:isRight?-4:4},
+        {x:cmc,y:.78,yref:'paper',text:`MC CVaR (${tail})`,showarrow:false,font:{color:'#ffb84d',size:10},xanchor:isRight?'right':'left',xshift:isRight?-4:4}
+      ],
       xaxis:{gridcolor:'#1c2738',zerolinecolor:'#1c2738',title:'Final P&L (%)'}
     },PC);
 
@@ -1003,7 +1009,8 @@ async function runMC(){
             <div class="const-stat-val" style="color:var(--warn)">${tPLoss}%</div>
           </div>
         </div>
-        <div class="const-chart" id="cc-${tok}-${ti}"></div>`;
+        <div class="const-chart" id="cc-path-${tok}-${ti}"></div>
+        <div class="const-chart" style="margin-top:8px" id="cc-dist-${tok}-${ti}"></div>`;
       constGrid.appendChild(card);
 
       // Mini path chart per token
@@ -1022,12 +1029,36 @@ async function runMC(){
       cpt.push({x:cxs,y:cq5,mode:'lines',name:'5th',line:{color:'#ff3d6b',width:1.5},showlegend:false});
       cpt.push({x:cxs,y:cq50,mode:'lines',name:'Med',line:{color:'#39ff6b',width:1.5},showlegend:false});
       cpt.push({x:cxs,y:cq95,mode:'lines',name:'95th',line:{color:color,width:1.5},showlegend:false});
-      Plotly.react(`cc-${tok}-${ti}`,cpt,{
+      Plotly.react(`cc-path-${tok}-${ti}`,cpt,{
         paper_bgcolor:'transparent',plot_bgcolor:'transparent',
         font:{color:'#dde6f0',family:'Space Mono,monospace',size:9},
         margin:{t:4,b:28,l:42,r:6},
         xaxis:{gridcolor:'#1c2738',zerolinecolor:'#1c2738',title:'Days',tickfont:{size:8}},
         yaxis:{gridcolor:'#1c2738',zerolinecolor:'#1c2738',title:'P&L %',tickfont:{size:8}},
+        showlegend:false
+      },PC);
+
+      // Mini distribution chart with VaR + CVaR lines
+      const cVarColor=isRight?'#39ff6b':'#ff3d6b';
+      Plotly.react(`cc-dist-${tok}-${ti}`,[{
+        x:tokFinal,type:'histogram',nbinsx:60,
+        marker:{color:color.replace('#','rgba(').length>7?color+'33':color+'33',line:{color:'#07090d',width:.3}},
+        marker:{color:'rgba(185,124,255,.45)',line:{color:'#07090d',width:.3}},
+        name:'P&L'
+      }],{
+        paper_bgcolor:'transparent',plot_bgcolor:'transparent',
+        font:{color:'#dde6f0',family:'Space Mono,monospace',size:9},
+        margin:{t:4,b:28,l:42,r:6},
+        shapes:[
+          {type:'line',x0:tVaR,x1:tVaR,y0:0,y1:1,yref:'paper',line:{color:cVarColor,width:2,dash:'dash'}},
+          {type:'line',x0:tCVaR,x1:tCVaR,y0:0,y1:1,yref:'paper',line:{color:'#ffb84d',width:2,dash:'dot'}}
+        ],
+        annotations:[
+          {x:tVaR,y:.92,yref:'paper',text:'VaR',showarrow:false,font:{color:cVarColor,size:9},xanchor:isRight?'right':'left',xshift:isRight?-3:3},
+          {x:tCVaR,y:.75,yref:'paper',text:'CVaR',showarrow:false,font:{color:'#ffb84d',size:9},xanchor:isRight?'right':'left',xshift:isRight?-3:3}
+        ],
+        xaxis:{gridcolor:'#1c2738',zerolinecolor:'#1c2738',title:'Final P&L (%)',tickfont:{size:8}},
+        yaxis:{gridcolor:'#1c2738',zerolinecolor:'#1c2738',tickfont:{size:8}},
         showlegend:false
       },PC);
     }
